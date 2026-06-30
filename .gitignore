@@ -11,6 +11,10 @@ __pycache__/
 .DS_Store
 __MACOSX/
 logs/
+target/
+dbt_packages/
+profiles.yml
+.user.yml
 
 data/*
 !data/.gitkeep
