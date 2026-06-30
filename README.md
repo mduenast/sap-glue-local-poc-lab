@@ -39,7 +39,13 @@ The lab writes DuckDB to:
 sap-glue-local-poc-lab/data/warehouse/local_lab.duckdb
 ```
 
-`make dbt-build` runs inside `../sap-glue-local-poc-dbt` and passes `DUCKDB_PATH` as an absolute path to that DuckDB file. The dbt profile example should use that `DUCKDB_PATH` environment variable.
+`make dbt-build` uses the dbt binary from the sibling repository virtual environment by default:
+
+```text
+../sap-glue-local-poc-dbt/.venv/bin/dbt
+```
+
+It passes `DUCKDB_PATH` as an absolute path to the DuckDB file. The dbt profile example should use that `DUCKDB_PATH` environment variable.
 
 ## Prerequisites
 
@@ -47,6 +53,37 @@ sap-glue-local-poc-lab/data/warehouse/local_lab.duckdb
 - Make
 - Python 3.11 or newer
 - AWS CLI-compatible tooling for Floci S3-compatible and DynamoDB-compatible commands against `localhost:4566`
+
+## dbt Sibling Project Setup
+
+This repository does not install dbt automatically and does not include dbt models. Create the dbt environment explicitly in the sibling dbt repository:
+
+```bash
+cd ../sap-glue-local-poc-dbt
+python -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -e .
+```
+
+If the sibling dbt project uses a requirements file instead of an editable package, install that file from the sibling repository:
+
+```bash
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+From this lab repository, `make dbt-build` defaults to:
+
+```make
+DBT_PROJECT_DIR ?= ../sap-glue-local-poc-dbt
+DBT_BIN ?= $(DBT_PROJECT_DIR)/.venv/bin/dbt
+```
+
+Override either value when the sibling project is somewhere else or when you want to use a different dbt executable:
+
+```bash
+make dbt-build DBT_PROJECT_DIR=../my-dbt-project
+make dbt-build DBT_BIN=/absolute/path/to/dbt
+```
 
 ## Quickstart
 
@@ -132,7 +169,7 @@ Run the local demo flow for all four tables:
 make demo
 ```
 
-`make demo` runs bootstrap, seeds the source, extracts and loads `MARA`, `KNA1`, `VBAK`, and `VBAP`, runs `dbt build` in `../sap-glue-local-poc-dbt`, then shows local results. If the sibling dbt repository is missing, the command fails with a clear message.
+`make demo` runs bootstrap, seeds the source, extracts and loads `MARA`, `KNA1`, `VBAK`, and `VBAP`, calls the dbt binary from `../sap-glue-local-poc-dbt/.venv/bin/dbt`, then shows local results. If the sibling dbt repository or virtual environment is missing, the command fails with a clear actionable message.
 
 Reset the local lab:
 

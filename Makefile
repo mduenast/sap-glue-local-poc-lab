@@ -8,6 +8,8 @@ EXTRACTOR_PYTHON ?= $(shell test -x extractor-simulator/.venv/bin/python && echo
 ORCHESTRATOR_PYTHON ?= $(shell test -x orchestrator/.venv/bin/python && echo orchestrator/.venv/bin/python || echo python)
 TABLES ?= MARA KNA1 VBAK VBAP
 DBT_PROJECT_DIR ?= ../sap-glue-local-poc-dbt
+DEFAULT_DBT_BIN = $(DBT_PROJECT_DIR)/.venv/bin/dbt
+DBT_BIN ?= $(DEFAULT_DBT_BIN)
 DUCKDB_PATH ?= ./data/warehouse/local_lab.duckdb
 DBT_DUCKDB_PATH ?= $(abspath $(DUCKDB_PATH))
 
@@ -40,8 +42,9 @@ show-results:
 dbt-build:
 	@test -d "$(DBT_PROJECT_DIR)" || (echo "dbt project not found at $(DBT_PROJECT_DIR). Clone it next to this repository as ../sap-glue-local-poc-dbt." >&2; exit 1)
 	@test -f "$(DBT_DUCKDB_PATH)" || (echo "DuckDB database not found at $(DBT_DUCKDB_PATH). Run make load TABLE=VBAK or make demo after extracting/loading data." >&2; exit 1)
-	@command -v dbt >/dev/null 2>&1 || (echo "dbt command not found. Install dbt for the sibling project environment before running make dbt-build." >&2; exit 1)
-	cd "$(DBT_PROJECT_DIR)" && DUCKDB_PATH="$(DBT_DUCKDB_PATH)" dbt build
+	@if [ "$(DBT_BIN)" = "$(DEFAULT_DBT_BIN)" ] && [ ! -d "$(DBT_PROJECT_DIR)/.venv" ]; then echo "dbt virtual environment not found at $(DBT_PROJECT_DIR)/.venv. Create it in the sibling dbt repository, then install that project's dbt dependencies." >&2; exit 1; fi
+	@test -x "$(DBT_BIN)" || (echo "dbt binary not found or not executable at $(DBT_BIN). Create the sibling dbt virtual environment and install dbt, or override DBT_BIN=/path/to/dbt." >&2; exit 1)
+	DUCKDB_PATH="$(DBT_DUCKDB_PATH)" "$(DBT_BIN)" build --profiles-dir "$(DBT_PROJECT_DIR)" --project-dir "$(DBT_PROJECT_DIR)"
 
 demo:
 	$(MAKE) up
