@@ -3,8 +3,8 @@
 This repository contains a small, public-safe skeleton for a local executable lab. It simulates:
 
 - a SAP-like operational source using PostgreSQL
-- an enterprise-style extractor that will write files and manifests to an S3-compatible landing zone
-- a local orchestrator that will read manifests and load data into DuckDB
+- a local S3-compatible and DynamoDB-compatible landing environment exposed on `localhost:4566`
+- future extractor and orchestrator packages
 
 The project is intentionally generic. It does not connect to any real SAP system, does not include commercial extractor configuration, and does not implement dbt models. dbt is expected to live in a separate repository in later phases.
 
@@ -12,20 +12,19 @@ The project is intentionally generic. It does not connect to any real SAP system
 
 ```text
 PostgreSQL SAP-like source
-  -> extractor simulator
-  -> S3-compatible landing zone provided by Floci
-  -> local orchestrator
-  -> DuckDB analytical file
+  -> future extractor simulator
+  -> local S3-compatible landing zone
+  -> future local orchestrator
+  -> future DuckDB analytical file
 ```
 
-The first iteration only defines the structure, sample source schema, seed data, package skeletons, and operational entry points.
+Phase 1 implements the PostgreSQL source simulator and local AWS-compatible bootstrap only.
 
 ## Prerequisites
 
 - Docker and Docker Compose
 - Make
-- Python 3.11 or newer for local package development
-- AWS CLI compatible tooling for local S3 and DynamoDB commands
+- Optional AWS CLI compatible tooling for local S3 and DynamoDB commands against `localhost:4566`
 
 ## Quickstart
 
@@ -33,12 +32,40 @@ The first iteration only defines the structure, sample source schema, seed data,
 make up
 make bootstrap
 make seed-sap
-make extract
-make load
-make demo
 ```
 
-The placeholder targets are intentionally light. Later phases will fill in extraction, manifest writing, state tracking, and DuckDB loading behavior.
+This starts PostgreSQL 16 and the local Floci service, creates the local landing bucket and batch-state table, and seeds the SAP-like source tables.
+
+## Verification
+
+Check the local services:
+
+```bash
+docker compose ps
+```
+
+Check the simulated SAP-like tables:
+
+```bash
+docker compose exec postgres psql -U lab_user -d sap_source -c "\dt"
+docker compose exec postgres psql -U lab_user -d sap_source -c "select count(*) from sap_mara;"
+docker compose exec postgres psql -U lab_user -d sap_source -c "select count(*) from sap_kna1;"
+docker compose exec postgres psql -U lab_user -d sap_source -c "select count(*) from sap_vbak;"
+docker compose exec postgres psql -U lab_user -d sap_source -c "select count(*) from sap_vbap;"
+```
+
+Check the local AWS-compatible resources:
+
+```bash
+docker compose exec floci awslocal s3api list-buckets
+docker compose exec floci awslocal dynamodb list-tables
+```
+
+Reset the local lab:
+
+```bash
+make clean
+```
 
 ## Repository Layout
 
@@ -58,7 +85,9 @@ The placeholder targets are intentionally light. Later phases will fill in extra
 - No Snowflake integration is included.
 - No dbt project or dbt models are included.
 - No production-grade security, monitoring, or orchestration claims are made.
-- Extraction and loading logic are TODO skeletons for future phases.
+- Extractor logic is not implemented in Phase 1.
+- Orchestrator and DuckDB loading logic are not implemented in Phase 1.
+- The local AWS-compatible resources are only validated for local development behavior.
 
 ## Next Phase
 
