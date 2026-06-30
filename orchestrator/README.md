@@ -4,8 +4,8 @@ This package implements the Phase 3 local orchestrator.
 
 Current responsibilities:
 
-- read extraction manifests from local S3-compatible storage
-- maintain batch state in local DynamoDB-compatible storage
+- read extraction manifests from the Floci S3-compatible service
+- maintain batch state in the Floci DynamoDB-compatible service
 - load manifest-listed Parquet files into DuckDB RAW tables
 - skip batches already marked `SUCCESS`
 

@@ -12,7 +12,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 
 class S3LandingZoneWriter:
-    """Uploads extracted files to the local S3-compatible landing bucket."""
+    """Uploads extracted files to the Floci S3-compatible landing bucket."""
 
     def __init__(self, bucket: str, endpoint_url: str, region_name: str) -> None:
         self.bucket = bucket

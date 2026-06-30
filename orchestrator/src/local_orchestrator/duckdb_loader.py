@@ -48,7 +48,7 @@ class DuckDBLoader:
                     select_sql = (
                         "select *, "
                         f"'{_sql_escape(manifest.batch_id)}' as _batch_id, "
-                        f"'{_sql_escape(manifest.table)}' as _source_table, "
+                        f"'{_sql_escape(manifest.source_table)}' as _source_table, "
                         f"'{_sql_escape(loaded_at)}' as _loaded_at, "
                         f"'{_sql_escape(source_uri)}' as _file_name "
                         f"from read_parquet('{_sql_escape(str(local_path))}')"

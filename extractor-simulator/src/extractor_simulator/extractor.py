@@ -48,9 +48,11 @@ class Extractor:
             parquet_uri = writer.upload_file(parquet_path, parquet_key)
             manifest = build_manifest(
                 table=self.table_config.short_name,
+                source_table=self.table_config.name,
                 mode=self.mode,
                 batch_id=batch_id,
-                files=[parquet_uri],
+                load_date=load_date,
+                files=[{"uri": parquet_uri, "rows": len(rows)}],
                 total_rows=len(rows),
                 created_at=datetime.now(UTC),
             )

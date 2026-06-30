@@ -1,4 +1,4 @@
-"""Manifest reading from local S3-compatible storage."""
+"""Manifest reading from the Floci S3-compatible service."""
 
 from __future__ import annotations
 
@@ -16,9 +16,11 @@ from botocore.exceptions import BotoCoreError, ClientError
 class Manifest:
     batch_id: str
     table: str
+    source_table: str
     mode: str
     format: str
     file_paths: tuple[str, ...]
+    file_rows: tuple[int | None, ...]
     total_rows: int
     created_at: str
 
@@ -95,17 +97,39 @@ def validate_manifest(payload: dict[str, object]) -> Manifest:
         raise ValueError("Manifest field 'table' must be a non-empty string.")
     if not isinstance(batch_id, str) or not batch_id.strip():
         raise ValueError("Manifest field 'batch_id' must be a non-empty string.")
-    if not isinstance(files, list) or not files or not all(isinstance(item, str) for item in files):
-        raise ValueError("Manifest field 'files' must be a non-empty list of S3 URIs.")
+    file_uris, file_rows = _normalize_files(files)
     if not isinstance(total_rows, int):
         raise ValueError("Manifest field 'total_rows' must be an integer.")
 
     return Manifest(
         batch_id=batch_id,
         table=table.upper(),
+        source_table=str(payload.get("source_table", f"sap_{table.lower()}")),
         mode=str(payload.get("mode", "full")),
         format=str(payload.get("format", "parquet")),
-        file_paths=tuple(files),
+        file_paths=tuple(file_uris),
+        file_rows=tuple(file_rows),
         total_rows=total_rows,
         created_at=str(payload.get("created_at", "")),
     )
+
+
+def _normalize_files(files: object) -> tuple[list[str], list[int | None]]:
+    if not isinstance(files, list) or not files:
+        raise ValueError("Manifest field 'files' must be a non-empty list.")
+
+    uris: list[str] = []
+    rows: list[int | None] = []
+    for item in files:
+        if isinstance(item, str):
+            uris.append(item)
+            rows.append(None)
+            continue
+        if isinstance(item, dict) and isinstance(item.get("uri"), str):
+            uris.append(item["uri"])
+            row_count = item.get("rows")
+            rows.append(row_count if isinstance(row_count, int) else None)
+            continue
+        raise ValueError("Manifest field 'files' must contain S3 URI strings or objects with a 'uri' field.")
+
+    return uris, rows

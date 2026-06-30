@@ -29,8 +29,8 @@ class Pipeline:
         state_store: BatchStateStore,
         loader: DuckDBLoader,
     ) -> None:
-        if state_store.is_success(manifest.batch_id):
-            print(f"Skipping batch_id={manifest.batch_id}; state is already SUCCESS.")
+        if state_store.is_success(manifest.table, manifest.batch_id):
+            print(f"Skipping table={manifest.table} batch_id={manifest.batch_id}; state is already SUCCESS.")
             return
 
         try:

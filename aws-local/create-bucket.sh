@@ -9,11 +9,12 @@ export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"
 export AWS_DEFAULT_REGION="${REGION}"
 
-if command -v aws >/dev/null 2>&1; then
-  aws_cmd=(aws --endpoint-url "${ENDPOINT_URL}")
-else
-  aws_cmd=(docker compose exec -T floci awslocal)
-fi
+command -v aws >/dev/null 2>&1 || {
+  echo "aws command not found. Install AWS CLI-compatible tooling to bootstrap Floci resources." >&2
+  exit 1
+}
+
+aws_cmd=(aws --endpoint-url "${ENDPOINT_URL}")
 
 if "${aws_cmd[@]}" s3api head-bucket --bucket "${BUCKET}" >/dev/null 2>&1; then
   echo "Landing bucket already exists: ${BUCKET}"

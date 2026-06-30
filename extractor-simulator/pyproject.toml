@@ -1,7 +1,7 @@
 [project]
 name = "extractor-simulator"
 version = "0.1.0"
-description = "Skeleton extractor simulator for a local SAP-like data lab."
+description = "Extractor simulator for a local SAP-like data lab."
 requires-python = ">=3.11"
 dependencies = [
     "boto3>=1.34",

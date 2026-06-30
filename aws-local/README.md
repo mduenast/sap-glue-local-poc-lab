@@ -1,8 +1,8 @@
-# Local AWS-Compatible Services
+# Floci Local Emulator
 
 This folder contains minimal bootstrap scripts for the local landing zone.
 
-The Docker Compose service named `floci` exposes S3-compatible and DynamoDB-compatible APIs on port `4566` by default.
+The Docker Compose service named `floci` exposes the local AWS-compatible emulator on port `4566` by default, including the Floci S3-compatible service and Floci DynamoDB-compatible service.
 
 ## Scripts
 
@@ -19,4 +19,4 @@ make bootstrap
 
 The scripts use placeholder local credentials from `.env.example`. They do not contain real credentials.
 
-If the host AWS CLI is not installed, the scripts use `awslocal` inside the running `floci` container.
+The host must provide AWS CLI-compatible tooling as `aws`.

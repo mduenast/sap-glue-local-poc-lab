@@ -3,7 +3,7 @@
 Este repositorio contiene un esqueleto pequeno y seguro para publicacion de un laboratorio ejecutable en local. Simula:
 
 - una fuente operacional tipo SAP usando PostgreSQL
-- un entorno local compatible con S3 y DynamoDB expuesto en `localhost:4566`
+- Floci como emulador local compatible con AWS expuesto en `localhost:4566`
 - un simulador de extractor que escribe ficheros Parquet y manifiestos
 - un orquestador local guiado por manifiestos que carga tablas RAW en DuckDB
 - una llamada final opcional a un proyecto dbt separado clonado junto a este repositorio
@@ -15,7 +15,7 @@ El proyecto es intencionadamente generico. No conecta con ningun sistema SAP rea
 ```text
 Fuente tipo SAP en PostgreSQL
   -> simulador de extractor
-  -> zona de aterrizaje local compatible con S3
+  -> servicio Floci compatible con S3
   -> orquestador local
   -> tablas RAW en DuckDB
   -> proyecto dbt externo
@@ -46,7 +46,7 @@ sap-glue-local-poc-lab/data/warehouse/local_lab.duckdb
 - Docker y Docker Compose
 - Make
 - Python 3.11 o superior
-- Herramientas compatibles con AWS CLI opcionales para comandos locales de S3 y DynamoDB contra `localhost:4566`
+- Herramientas compatibles con AWS CLI para comandos Floci compatibles con S3 y DynamoDB contra `localhost:4566`
 
 ## Inicio rapido
 
@@ -63,7 +63,7 @@ make load TABLE=VBAK
 make show-results
 ```
 
-Esto arranca PostgreSQL 16 y el servicio local Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP, extrae una tabla a Parquet con manifiesto y carga el ultimo manifiesto en DuckDB.
+Esto arranca PostgreSQL 16 y Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP, extrae una tabla a Parquet con manifiesto y carga el ultimo manifiesto en DuckDB.
 
 ## Verificacion
 
@@ -83,11 +83,11 @@ docker compose exec postgres psql -U lab_user -d sap_source -c "select count(*) 
 docker compose exec postgres psql -U lab_user -d sap_source -c "select count(*) from sap_vbap;"
 ```
 
-Comprobar los recursos locales compatibles con AWS:
+Comprobar los recursos Floci:
 
 ```bash
-docker compose exec floci awslocal s3api list-buckets
-docker compose exec floci awslocal dynamodb list-tables
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3api list-buckets
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 dynamodb list-tables
 ```
 
 Ejecutar una extraccion completa de la tabla de cabecera de ventas:
@@ -99,7 +99,7 @@ make extract TABLE=VBAK
 Listar los artefactos subidos:
 
 ```bash
-docker compose exec floci awslocal s3 ls \
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3 ls \
   s3://sap-glue-local-landing/landing/sap/VBAK/ \
   --recursive
 ```
@@ -107,8 +107,8 @@ docker compose exec floci awslocal s3 ls \
 Leer el ultimo manifiesto:
 
 ```bash
-LATEST_MANIFEST="$(docker compose exec -T floci awslocal s3 ls s3://sap-glue-local-landing/landing/sap/VBAK/ --recursive | awk '/manifest.json/ {print $4}' | tail -n 1)"
-docker compose exec -T floci awslocal s3 cp "s3://sap-glue-local-landing/${LATEST_MANIFEST}" -
+LATEST_MANIFEST="$(AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3 ls s3://sap-glue-local-landing/landing/sap/VBAK/ --recursive | awk '/manifest.json/ {print $4}' | tail -n 1)"
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3 cp "s3://sap-glue-local-landing/${LATEST_MANIFEST}" -
 ```
 
 Cargar el ultimo manifiesto en DuckDB:
@@ -140,11 +140,35 @@ Reiniciar el laboratorio local:
 make clean
 ```
 
+## Esquema tipo SAP
+
+El simulador PostgreSQL expone cuatro tablas genericas tipo SAP:
+
+- `sap_mara`: `mandt`, `matnr`, `mtart`, `matkl`, `meins`, `ersda`, `erdat`, `aedat`
+- `sap_kna1`: `mandt`, `kunnr`, `name1`, `land1`, `ort01`, `erdat`, `aedat`
+- `sap_vbak`: `mandt`, `vbeln`, `kunnr`, `audat`, `auart`, `vkorg`, `erdat`, `aedat`, `waers`, `waerk`, `netwr`
+- `sap_vbap`: `mandt`, `vbeln`, `posnr`, `matnr`, `kwmeng`, `vrkme`, `waerk`, `netwr`, `erdat`, `aedat`
+
+## Contrato de manifiesto
+
+El extractor escribe `manifest.json` junto a cada fichero Parquet. El manifiesto incluye:
+
+- `source_system: "SAP_SIM"`
+- `extractor: "EXTRACTOR_SIMULATOR"`
+- `table` y `source_table`
+- `mode`, `batch_id`, `load_date`, `status`
+- `format: "parquet"`
+- `files`, como objetos con `uri` y `rows`
+- `total_rows`
+- `created_at`
+
+El orquestador acepta esta forma de manifiesto y mantiene compatibilidad simple con manifiestos antiguos donde `files` era una lista de URIs.
+
 ## Estructura
 
 - `sap-simulator/`: esquema PostgreSQL y scripts de datos para tablas tipo SAP.
 - `extractor-simulator/`: paquete Python para extraccion full-table a Parquet y manifiestos.
-- `aws-local/`: scripts de bootstrap para S3 compatible y DynamoDB local.
+- `aws-local/`: scripts de bootstrap para servicios Floci compatibles con S3 y DynamoDB.
 - `orchestrator/`: paquete Python para carga RAW en DuckDB guiada por manifiestos.
 - `config/tables.yml`: metadatos de extraccion de tablas.
 - `scripts/`: puntos de entrada para demo, limpieza y visualizacion de resultados.
@@ -161,9 +185,9 @@ make clean
 - La logica de extractor soporta solo extraccion completa en la Fase 2.
 - La extraccion incremental no esta implementada todavia.
 - La carga del orquestador soporta solo tablas RAW locales guiadas por manifiestos.
-- La idempotencia de lotes se controla por `batch_id` en almacenamiento local compatible con DynamoDB.
+- La idempotencia de lotes se controla por `table_name` y `batch_id` en el servicio Floci compatible con DynamoDB.
 - La ejecucion de dbt es solo una llamada simple al repositorio hermano.
-- Los recursos locales compatibles con AWS solo se validan para comportamiento de desarrollo local.
+- Los recursos Floci solo se validan para comportamiento de desarrollo local.
 
 ## Siguiente fase
 

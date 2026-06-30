@@ -18,21 +18,14 @@ services:
       retries: 20
 
   floci:
-    image: localstack/localstack:3
+    image: ${FLOCI_IMAGE:-floci/floci:latest}
     container_name: sap_glue_lab_floci
     environment:
-      SERVICES: s3,dynamodb
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-west-1}
-      DEBUG: ${FLOCI_DEBUG:-0}
     ports:
       - "${FLOCI_EDGE_PORT:-4566}:4566"
     volumes:
-      - floci-data:/var/lib/localstack
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
+      - floci-data:/data
 
 volumes:
   postgres-data:

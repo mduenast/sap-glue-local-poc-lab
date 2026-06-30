@@ -1,4 +1,4 @@
-"""Batch-state tracking in local DynamoDB-compatible storage."""
+"""Batch-state tracking in the Floci DynamoDB-compatible service."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 
 class BatchStateStore:
-    """Tracks processed batches in local DynamoDB-compatible storage."""
+    """Tracks processed batches in the Floci DynamoDB-compatible service."""
 
     def __init__(self, table_name: str, endpoint_url: str, region_name: str) -> None:
         self.table_name = table_name
@@ -31,18 +31,18 @@ class BatchStateStore:
             region_name=os.getenv("AWS_DEFAULT_REGION", "eu-west-1"),
         )
 
-    def is_success(self, batch_id: str) -> bool:
-        item = self.get(batch_id)
+    def is_success(self, table: str, batch_id: str) -> bool:
+        item = self.get(table, batch_id)
         return item.get("status", {}).get("S") == "SUCCESS" if item else False
 
-    def get(self, batch_id: str) -> dict[str, dict[str, str]] | None:
+    def get(self, table: str, batch_id: str) -> dict[str, dict[str, str]] | None:
         try:
             response = self.client.get_item(
                 TableName=self.table_name,
-                Key={"batch_id": {"S": batch_id}},
+                Key={"table_name": {"S": table}, "batch_id": {"S": batch_id}},
             )
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Failed to read batch state for '{batch_id}': {exc}") from exc
+            raise RuntimeError(f"Failed to read batch state for table='{table}' batch_id='{batch_id}': {exc}") from exc
         return response.get("Item")
 
     def put_status(
