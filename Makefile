@@ -1,10 +1,11 @@
-.PHONY: up down bootstrap seed-sap extract load demo clean
+.PHONY: up down bootstrap seed-sap extract load show-results demo clean
 
 COMPOSE ?= docker compose
 POSTGRES_SERVICE ?= postgres
 POSTGRES_DB ?= sap_source
 POSTGRES_USER ?= lab_user
 EXTRACTOR_PYTHON ?= $(shell test -x extractor-simulator/.venv/bin/python && echo extractor-simulator/.venv/bin/python || echo python)
+ORCHESTRATOR_PYTHON ?= $(shell test -x orchestrator/.venv/bin/python && echo orchestrator/.venv/bin/python || echo python)
 
 up:
 	$(COMPOSE) up -d
@@ -26,7 +27,11 @@ extract:
 	PYTHONPATH=extractor-simulator/src $(EXTRACTOR_PYTHON) -m extractor_simulator.cli extract --config config/tables.yml --table $(TABLE) --mode full
 
 load:
-	cd orchestrator && PYTHONPATH=src python -m local_orchestrator.cli load --manifest-root ../data/landing/manifests
+	@test -n "$(TABLE)" || (echo "Usage: make load TABLE=VBAK" >&2; exit 1)
+	PYTHONPATH=orchestrator/src $(ORCHESTRATOR_PYTHON) -m local_orchestrator.cli process-latest --table $(TABLE)
+
+show-results:
+	PYTHONPATH=orchestrator/src $(ORCHESTRATOR_PYTHON) -m local_orchestrator.cli show-results
 
 demo:
 	./scripts/run-demo.sh

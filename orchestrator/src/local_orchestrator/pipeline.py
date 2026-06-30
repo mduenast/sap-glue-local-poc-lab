@@ -1,4 +1,4 @@
-"""Local orchestration pipeline skeleton."""
+"""Manifest-driven local orchestration pipeline."""
 
 from __future__ import annotations
 
@@ -6,24 +6,63 @@ from dataclasses import dataclass
 
 from local_orchestrator.batch_state import BatchStateStore
 from local_orchestrator.duckdb_loader import DuckDBLoader
-from local_orchestrator.manifest_reader import ManifestReader
+from local_orchestrator.manifest_reader import Manifest, ManifestReader
 
 
 @dataclass
 class Pipeline:
-    manifest_root: str
+    manifest_s3_uri: str
     duckdb_path: str
 
     def run(self) -> None:
-        reader = ManifestReader(self.manifest_root)
-        state_store = BatchStateStore()
+        reader = ManifestReader.from_env()
+        state_store = BatchStateStore.from_env()
         loader = DuckDBLoader(self.duckdb_path)
 
-        manifests = reader.read_pending()
-        for manifest in manifests:
-            if state_store.is_processed(manifest.batch_id):
-                continue
-            loader.load_manifest(manifest)
-            state_store.mark_processed(manifest.batch_id)
+        manifest = reader.read_manifest_uri(self.manifest_s3_uri)
+        self.process_manifest(manifest, self.manifest_s3_uri, state_store, loader)
 
-        print("Orchestrator skeleton completed. No files were loaded.")
+    @staticmethod
+    def process_manifest(
+        manifest: Manifest,
+        manifest_s3_uri: str,
+        state_store: BatchStateStore,
+        loader: DuckDBLoader,
+    ) -> None:
+        if state_store.is_success(manifest.batch_id):
+            print(f"Skipping batch_id={manifest.batch_id}; state is already SUCCESS.")
+            return
+
+        try:
+            state_store.put_status(
+                batch_id=manifest.batch_id,
+                table=manifest.table,
+                status="RECEIVED",
+                manifest_s3_uri=manifest_s3_uri,
+            )
+            loaded_rows = loader.load_manifest(manifest)
+            state_store.put_status(
+                batch_id=manifest.batch_id,
+                table=manifest.table,
+                status="LOADED",
+                manifest_s3_uri=manifest_s3_uri,
+                message=f"Loaded {loaded_rows} row(s).",
+            )
+            state_store.put_status(
+                batch_id=manifest.batch_id,
+                table=manifest.table,
+                status="SUCCESS",
+                manifest_s3_uri=manifest_s3_uri,
+                message=f"Loaded {loaded_rows} row(s).",
+            )
+        except Exception as exc:
+            state_store.put_status(
+                batch_id=manifest.batch_id,
+                table=manifest.table,
+                status="FAILED",
+                manifest_s3_uri=manifest_s3_uri,
+                message=str(exc),
+            )
+            raise
+
+        print(f"Loaded batch_id={manifest.batch_id} table={manifest.table} rows={manifest.total_rows}.")

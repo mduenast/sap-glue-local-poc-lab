@@ -4,7 +4,8 @@ Este repositorio contiene un esqueleto pequeno y seguro para publicacion de un l
 
 - una fuente operacional tipo SAP usando PostgreSQL
 - un entorno local compatible con S3 y DynamoDB expuesto en `localhost:4566`
-- futuros paquetes de extractor y orquestador
+- un simulador de extractor que escribe ficheros Parquet y manifiestos
+- un orquestador local guiado por manifiestos que carga tablas RAW en DuckDB
 
 El proyecto es intencionadamente generico. No conecta con ningun sistema SAP real, no incluye configuracion de extractores comerciales y no implementa modelos dbt. dbt vivira en un repositorio separado en fases posteriores.
 
@@ -12,13 +13,13 @@ El proyecto es intencionadamente generico. No conecta con ningun sistema SAP rea
 
 ```text
 Fuente tipo SAP en PostgreSQL
-  -> futuro simulador de extractor
+  -> simulador de extractor
   -> zona de aterrizaje local compatible con S3
-  -> futuro orquestador local
-  -> futuro fichero analitico DuckDB
+  -> orquestador local
+  -> tablas RAW en DuckDB
 ```
 
-La Fase 1 implementa solo el simulador de fuente PostgreSQL y el bootstrap local compatible con AWS.
+La Fase 3 implementa carga local guiada por manifiestos en tablas RAW de DuckDB y estado de lotes en almacenamiento local compatible con DynamoDB.
 
 ## Prerrequisitos
 
@@ -35,10 +36,14 @@ make bootstrap
 make seed-sap
 python -m venv extractor-simulator/.venv
 extractor-simulator/.venv/bin/python -m pip install -e extractor-simulator
-PATH="$(pwd)/extractor-simulator/.venv/bin:$PATH" make extract TABLE=VBAK
+python -m venv orchestrator/.venv
+orchestrator/.venv/bin/python -m pip install -e orchestrator
+make extract TABLE=VBAK
+make load TABLE=VBAK
+make show-results
 ```
 
-Esto arranca PostgreSQL 16 y el servicio local Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP y extrae una tabla a Parquet con manifiesto.
+Esto arranca PostgreSQL 16 y el servicio local Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP, extrae una tabla a Parquet con manifiesto y carga el ultimo manifiesto en DuckDB.
 
 ## Verificacion
 
@@ -68,7 +73,7 @@ docker compose exec floci awslocal dynamodb list-tables
 Ejecutar una extraccion completa de la tabla de cabecera de ventas:
 
 ```bash
-PATH="$(pwd)/extractor-simulator/.venv/bin:$PATH" make extract TABLE=VBAK
+make extract TABLE=VBAK
 ```
 
 Listar los artefactos subidos:
@@ -86,6 +91,15 @@ LATEST_MANIFEST="$(docker compose exec -T floci awslocal s3 ls s3://sap-glue-loc
 docker compose exec -T floci awslocal s3 cp "s3://sap-glue-local-landing/${LATEST_MANIFEST}" -
 ```
 
+Cargar el ultimo manifiesto en DuckDB:
+
+```bash
+make load TABLE=VBAK
+make show-results
+```
+
+El orquestador escribe en tablas RAW llamadas `raw_sap_<lower_table>`, por ejemplo `raw_sap_vbak`. Anade las columnas tecnicas `_batch_id`, `_source_table`, `_loaded_at` y `_file_name`. Al repetir `make load TABLE=VBAK`, se omite un lote que ya esta marcado como `SUCCESS` en `sap_ingestion_batches`.
+
 Reiniciar el laboratorio local:
 
 ```bash
@@ -97,7 +111,7 @@ make clean
 - `sap-simulator/`: esquema PostgreSQL y scripts de datos para tablas tipo SAP.
 - `extractor-simulator/`: paquete Python para extraccion full-table a Parquet y manifiestos.
 - `aws-local/`: scripts de bootstrap para S3 compatible y DynamoDB local.
-- `orchestrator/`: esqueleto Python para carga en DuckDB guiada por manifiestos.
+- `orchestrator/`: paquete Python para carga RAW en DuckDB guiada por manifiestos.
 - `config/tables.yml`: metadatos de extraccion de tablas.
 - `scripts/`: puntos de entrada para demo, limpieza y visualizacion de resultados.
 - `data/`: area local de datos generados, excluida de git salvo `.gitkeep`.
@@ -112,14 +126,15 @@ make clean
 - No se hacen afirmaciones de seguridad, monitorizacion u orquestacion de nivel productivo.
 - La logica de extractor soporta solo extraccion completa en la Fase 2.
 - La extraccion incremental no esta implementada todavia.
-- La logica de orquestador y carga en DuckDB no esta implementada todavia.
+- La carga del orquestador soporta solo tablas RAW locales guiadas por manifiestos.
+- La idempotencia de lotes se controla por `batch_id` en almacenamiento local compatible con DynamoDB.
+- La ejecucion de dbt no esta implementada todavia.
 - Los recursos locales compatibles con AWS solo se validan para comportamiento de desarrollo local.
 
 ## Siguiente fase
 
-La siguiente fase recomendada es implementar la carga local guiada por manifiestos:
+La siguiente fase recomendada es implementar el traspaso a transformaciones locales:
 
-1. Leer manifiestos desde el bucket local compatible con S3.
-2. Descargar o leer los ficheros Parquet indicados por el manifiesto.
-3. Cargarlos en DuckDB.
-4. Persistir estado basico de lote en local.
+1. Definir el contrato entre tablas RAW y un repositorio dbt separado.
+2. Anadir comprobaciones ligeras de calidad sobre conteos RAW.
+3. Anadir un comando local que prepare DuckDB para transformaciones posteriores.

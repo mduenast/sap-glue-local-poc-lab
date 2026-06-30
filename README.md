@@ -4,7 +4,8 @@ This repository contains a small, public-safe skeleton for a local executable la
 
 - a SAP-like operational source using PostgreSQL
 - a local S3-compatible and DynamoDB-compatible landing environment exposed on `localhost:4566`
-- future extractor and orchestrator packages
+- an extractor simulator that writes Parquet files and manifests
+- a local manifest-driven orchestrator that loads DuckDB RAW tables
 
 The project is intentionally generic. It does not connect to any real SAP system, does not include commercial extractor configuration, and does not implement dbt models. dbt is expected to live in a separate repository in later phases.
 
@@ -12,13 +13,13 @@ The project is intentionally generic. It does not connect to any real SAP system
 
 ```text
 PostgreSQL SAP-like source
-  -> future extractor simulator
+  -> extractor simulator
   -> local S3-compatible landing zone
-  -> future local orchestrator
-  -> future DuckDB analytical file
+  -> local orchestrator
+  -> DuckDB RAW tables
 ```
 
-Phase 1 implements the PostgreSQL source simulator and local AWS-compatible bootstrap only.
+Phase 3 implements manifest-driven local loading into DuckDB RAW tables and batch-state tracking in local DynamoDB-compatible storage.
 
 ## Prerequisites
 
@@ -35,10 +36,14 @@ make bootstrap
 make seed-sap
 python -m venv extractor-simulator/.venv
 extractor-simulator/.venv/bin/python -m pip install -e extractor-simulator
-PATH="$(pwd)/extractor-simulator/.venv/bin:$PATH" make extract TABLE=VBAK
+python -m venv orchestrator/.venv
+orchestrator/.venv/bin/python -m pip install -e orchestrator
+make extract TABLE=VBAK
+make load TABLE=VBAK
+make show-results
 ```
 
-This starts PostgreSQL 16 and the local Floci service, creates the local landing bucket and batch-state table, seeds the SAP-like source tables, and extracts one table to Parquet plus a manifest.
+This starts PostgreSQL 16 and the local Floci service, creates the local landing bucket and batch-state table, seeds the SAP-like source tables, extracts one table to Parquet plus a manifest, and loads the latest manifest into DuckDB.
 
 ## Verification
 
@@ -68,7 +73,7 @@ docker compose exec floci awslocal dynamodb list-tables
 Run a full extraction for the sales header table:
 
 ```bash
-PATH="$(pwd)/extractor-simulator/.venv/bin:$PATH" make extract TABLE=VBAK
+make extract TABLE=VBAK
 ```
 
 List the uploaded extraction artifacts:
@@ -86,6 +91,15 @@ LATEST_MANIFEST="$(docker compose exec -T floci awslocal s3 ls s3://sap-glue-loc
 docker compose exec -T floci awslocal s3 cp "s3://sap-glue-local-landing/${LATEST_MANIFEST}" -
 ```
 
+Load the latest manifest into DuckDB:
+
+```bash
+make load TABLE=VBAK
+make show-results
+```
+
+The orchestrator writes to RAW tables named `raw_sap_<lower_table>`, for example `raw_sap_vbak`. It adds `_batch_id`, `_source_table`, `_loaded_at`, and `_file_name` technical columns. Re-running `make load TABLE=VBAK` skips a batch that is already marked `SUCCESS` in `sap_ingestion_batches`.
+
 Reset the local lab:
 
 ```bash
@@ -97,7 +111,7 @@ make clean
 - `sap-simulator/`: PostgreSQL schema and seed scripts for SAP-like tables.
 - `extractor-simulator/`: Python package for full-table extraction to Parquet and manifest files.
 - `aws-local/`: Local S3-compatible and DynamoDB bootstrap scripts.
-- `orchestrator/`: Python package skeleton for manifest-driven DuckDB loading.
+- `orchestrator/`: Python package for manifest-driven DuckDB RAW loading.
 - `config/tables.yml`: Table extraction metadata.
 - `scripts/`: Demo, cleanup, and result-display entry points.
 - `data/`: Local generated data area, kept out of git except for `.gitkeep`.
@@ -112,14 +126,15 @@ make clean
 - No production-grade security, monitoring, or orchestration claims are made.
 - Extractor logic supports full-table extraction only in Phase 2.
 - Incremental extraction is not implemented yet.
-- Orchestrator and DuckDB loading logic are not implemented yet.
+- Orchestrator loading supports manifest-driven local RAW tables only.
+- Batch idempotency is tracked by `batch_id` in local DynamoDB-compatible storage.
+- No dbt execution is implemented yet.
 - The local AWS-compatible resources are only validated for local development behavior.
 
 ## Next Phase
 
-The next recommended phase is to implement manifest-driven local loading:
+The next recommended phase is to implement local transformation handoff:
 
-1. Read manifest files from the local S3-compatible landing bucket.
-2. Download or stream manifest-listed Parquet files.
-3. Load them into DuckDB.
-4. Persist basic batch state locally.
+1. Define the contract between RAW tables and a separate dbt repository.
+2. Add lightweight data quality checks around RAW row counts.
+3. Add a local command that prepares DuckDB for downstream transformations.

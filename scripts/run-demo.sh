@@ -5,6 +5,7 @@ echo "Starting local lab demo skeleton..."
 make up
 make bootstrap
 make seed-sap
-make extract
-make load
+make extract TABLE=VBAK
+make load TABLE=VBAK
+make show-results
 echo "Demo skeleton completed."

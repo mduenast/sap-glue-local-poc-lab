@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DUCKDB_PATH="${DUCKDB_PATH:-./data/warehouse/local_lab.duckdb}"
+PYTHON_BIN="${ORCHESTRATOR_PYTHON:-python}"
 
-echo "Result display placeholder."
-echo "Expected DuckDB path: ${DUCKDB_PATH}"
-echo "DuckDB loading will be implemented in a later phase."
+if [ -x "orchestrator/.venv/bin/python" ] && [ "${ORCHESTRATOR_PYTHON:-}" = "" ]; then
+  PYTHON_BIN="orchestrator/.venv/bin/python"
+fi
+
+PYTHONPATH=orchestrator/src "${PYTHON_BIN}" -m local_orchestrator.cli show-results

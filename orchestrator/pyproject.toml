@@ -1,9 +1,10 @@
 [project]
 name = "local-orchestrator"
 version = "0.1.0"
-description = "Skeleton local orchestrator for loading manifest data into DuckDB."
+description = "Local manifest-driven orchestrator for loading extracted data into DuckDB."
 requires-python = ">=3.11"
 dependencies = [
+    "boto3>=1.34",
     "duckdb>=1.0.0",
 ]
 
