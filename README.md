@@ -6,8 +6,9 @@ This repository contains a small, public-safe skeleton for a local executable la
 - a local S3-compatible and DynamoDB-compatible landing environment exposed on `localhost:4566`
 - an extractor simulator that writes Parquet files and manifests
 - a local manifest-driven orchestrator that loads DuckDB RAW tables
+- an optional final call to a separate dbt project cloned next to this repository
 
-The project is intentionally generic. It does not connect to any real SAP system, does not include commercial extractor configuration, and does not implement dbt models. dbt is expected to live in a separate repository in later phases.
+The project is intentionally generic. It does not connect to any real SAP system, does not include commercial extractor configuration, and does not contain dbt models. dbt lives in a separate repository.
 
 ## Architecture
 
@@ -17,9 +18,28 @@ PostgreSQL SAP-like source
   -> local S3-compatible landing zone
   -> local orchestrator
   -> DuckDB RAW tables
+  -> external dbt project
 ```
 
-Phase 3 implements manifest-driven local loading into DuckDB RAW tables and batch-state tracking in local DynamoDB-compatible storage.
+The local demo can run the full generic flow through the external dbt project without copying dbt models into this repository.
+
+## Folder Layout
+
+Clone the two repositories side by side:
+
+```text
+parent-folder/
+  sap-glue-local-poc-lab/
+  sap-glue-local-poc-dbt/
+```
+
+The lab writes DuckDB to:
+
+```text
+sap-glue-local-poc-lab/data/warehouse/local_lab.duckdb
+```
+
+`make dbt-build` runs inside `../sap-glue-local-poc-dbt` and passes `DUCKDB_PATH` as an absolute path to that DuckDB file. The dbt profile example should use that `DUCKDB_PATH` environment variable.
 
 ## Prerequisites
 
@@ -100,6 +120,20 @@ make show-results
 
 The orchestrator writes to RAW tables named `raw_sap_<lower_table>`, for example `raw_sap_vbak`. It adds `_batch_id`, `_source_table`, `_loaded_at`, and `_file_name` technical columns. Re-running `make load TABLE=VBAK` skips a batch that is already marked `SUCCESS` in `sap_ingestion_batches`.
 
+Run the external dbt project:
+
+```bash
+make dbt-build
+```
+
+Run the local demo flow for all four tables:
+
+```bash
+make demo
+```
+
+`make demo` runs bootstrap, seeds the source, extracts and loads `MARA`, `KNA1`, `VBAK`, and `VBAP`, runs `dbt build` in `../sap-glue-local-poc-dbt`, then shows local results. If the sibling dbt repository is missing, the command fails with a clear message.
+
 Reset the local lab:
 
 ```bash
@@ -122,19 +156,19 @@ make clean
 - No real SAP system integration is included.
 - No commercial extractor configuration is included.
 - No Snowflake integration is included.
-- No dbt project or dbt models are included.
+- No dbt project or dbt models are included in this repository.
 - No production-grade security, monitoring, or orchestration claims are made.
 - Extractor logic supports full-table extraction only in Phase 2.
 - Incremental extraction is not implemented yet.
 - Orchestrator loading supports manifest-driven local RAW tables only.
 - Batch idempotency is tracked by `batch_id` in local DynamoDB-compatible storage.
-- No dbt execution is implemented yet.
+- dbt execution is a simple shell handoff to the sibling repository only.
 - The local AWS-compatible resources are only validated for local development behavior.
 
 ## Next Phase
 
-The next recommended phase is to implement local transformation handoff:
+The next recommended phase is to harden the local transformation handoff:
 
-1. Define the contract between RAW tables and a separate dbt repository.
+1. Add explicit checks that the expected dbt profiles and packages are installed.
 2. Add lightweight data quality checks around RAW row counts.
-3. Add a local command that prepares DuckDB for downstream transformations.
+3. Add a simple results summary for transformed tables.

@@ -6,8 +6,9 @@ Este repositorio contiene un esqueleto pequeno y seguro para publicacion de un l
 - un entorno local compatible con S3 y DynamoDB expuesto en `localhost:4566`
 - un simulador de extractor que escribe ficheros Parquet y manifiestos
 - un orquestador local guiado por manifiestos que carga tablas RAW en DuckDB
+- una llamada final opcional a un proyecto dbt separado clonado junto a este repositorio
 
-El proyecto es intencionadamente generico. No conecta con ningun sistema SAP real, no incluye configuracion de extractores comerciales y no implementa modelos dbt. dbt vivira en un repositorio separado en fases posteriores.
+El proyecto es intencionadamente generico. No conecta con ningun sistema SAP real, no incluye configuracion de extractores comerciales y no contiene modelos dbt. dbt vive en un repositorio separado.
 
 ## Arquitectura
 
@@ -17,9 +18,28 @@ Fuente tipo SAP en PostgreSQL
   -> zona de aterrizaje local compatible con S3
   -> orquestador local
   -> tablas RAW en DuckDB
+  -> proyecto dbt externo
 ```
 
-La Fase 3 implementa carga local guiada por manifiestos en tablas RAW de DuckDB y estado de lotes en almacenamiento local compatible con DynamoDB.
+La demo local puede ejecutar el flujo generico completo hasta el proyecto dbt externo sin copiar modelos dbt en este repositorio.
+
+## Estructura de carpetas
+
+Clonar los dos repositorios uno junto al otro:
+
+```text
+carpeta-padre/
+  sap-glue-local-poc-lab/
+  sap-glue-local-poc-dbt/
+```
+
+El laboratorio escribe DuckDB en:
+
+```text
+sap-glue-local-poc-lab/data/warehouse/local_lab.duckdb
+```
+
+`make dbt-build` se ejecuta dentro de `../sap-glue-local-poc-dbt` y pasa `DUCKDB_PATH` como ruta absoluta a ese fichero DuckDB. El ejemplo de profile de dbt debe usar esa variable de entorno `DUCKDB_PATH`.
 
 ## Prerrequisitos
 
@@ -100,6 +120,20 @@ make show-results
 
 El orquestador escribe en tablas RAW llamadas `raw_sap_<lower_table>`, por ejemplo `raw_sap_vbak`. Anade las columnas tecnicas `_batch_id`, `_source_table`, `_loaded_at` y `_file_name`. Al repetir `make load TABLE=VBAK`, se omite un lote que ya esta marcado como `SUCCESS` en `sap_ingestion_batches`.
 
+Ejecutar el proyecto dbt externo:
+
+```bash
+make dbt-build
+```
+
+Ejecutar la demo local para las cuatro tablas:
+
+```bash
+make demo
+```
+
+`make demo` ejecuta bootstrap, carga la fuente, extrae y carga `MARA`, `KNA1`, `VBAK` y `VBAP`, ejecuta `dbt build` en `../sap-glue-local-poc-dbt` y muestra resultados locales. Si el repositorio dbt hermano no existe, el comando falla con un mensaje claro.
+
 Reiniciar el laboratorio local:
 
 ```bash
@@ -122,19 +156,19 @@ make clean
 - No se incluye integracion con sistemas SAP reales.
 - No se incluye configuracion de extractores comerciales.
 - No se incluye integracion con Snowflake.
-- No se incluye proyecto dbt ni modelos dbt.
+- No se incluye proyecto dbt ni modelos dbt en este repositorio.
 - No se hacen afirmaciones de seguridad, monitorizacion u orquestacion de nivel productivo.
 - La logica de extractor soporta solo extraccion completa en la Fase 2.
 - La extraccion incremental no esta implementada todavia.
 - La carga del orquestador soporta solo tablas RAW locales guiadas por manifiestos.
 - La idempotencia de lotes se controla por `batch_id` en almacenamiento local compatible con DynamoDB.
-- La ejecucion de dbt no esta implementada todavia.
+- La ejecucion de dbt es solo una llamada simple al repositorio hermano.
 - Los recursos locales compatibles con AWS solo se validan para comportamiento de desarrollo local.
 
 ## Siguiente fase
 
-La siguiente fase recomendada es implementar el traspaso a transformaciones locales:
+La siguiente fase recomendada es reforzar el traspaso a transformaciones locales:
 
-1. Definir el contrato entre tablas RAW y un repositorio dbt separado.
+1. Anadir comprobaciones explicitas de profiles y paquetes dbt esperados.
 2. Anadir comprobaciones ligeras de calidad sobre conteos RAW.
-3. Anadir un comando local que prepare DuckDB para transformaciones posteriores.
+3. Anadir un resumen simple de resultados para tablas transformadas.
