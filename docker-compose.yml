@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sap_glue_lab_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sap_source}
+      POSTGRES_USER: ${POSTGRES_USER:-lab_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sap-simulator/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  floci:
+    image: localstack/localstack:3
+    container_name: sap_glue_lab_floci
+    environment:
+      SERVICES: s3,dynamodb
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-west-1}
+      DEBUG: ${FLOCI_DEBUG:-0}
+    ports:
+      - "${FLOCI_EDGE_PORT:-4566}:4566"
+    volumes:
+      - floci-data:/var/lib/localstack
+
+volumes:
+  postgres-data:
+  floci-data:

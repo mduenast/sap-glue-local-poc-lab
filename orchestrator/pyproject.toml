@@ -1,0 +1,15 @@
+[project]
+name = "local-orchestrator"
+version = "0.1.0"
+description = "Skeleton local orchestrator for loading manifest data into DuckDB."
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.0.0",
+]
+
+[project.scripts]
+local-orchestrator = "local_orchestrator.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

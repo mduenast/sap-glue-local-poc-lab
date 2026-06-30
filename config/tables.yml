@@ -1,0 +1,33 @@
+tables:
+  - name: sap_mara
+    description: SAP-like material master
+    primary_key:
+      - mandt
+      - matnr
+    extraction_mode: full
+    incremental_column: aedat
+
+  - name: sap_kna1
+    description: SAP-like customer master
+    primary_key:
+      - mandt
+      - kunnr
+    extraction_mode: full
+    incremental_column: aedat
+
+  - name: sap_vbak
+    description: SAP-like sales document header
+    primary_key:
+      - mandt
+      - vbeln
+    extraction_mode: incremental
+    incremental_column: aedat
+
+  - name: sap_vbap
+    description: SAP-like sales document item
+    primary_key:
+      - mandt
+      - vbeln
+      - posnr
+    extraction_mode: incremental
+    incremental_column: aedat

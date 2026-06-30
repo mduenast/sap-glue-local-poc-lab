@@ -1,0 +1,15 @@
+[project]
+name = "extractor-simulator"
+version = "0.1.0"
+description = "Skeleton extractor simulator for a local SAP-like data lab."
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+extractor-simulator = "extractor_simulator.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
