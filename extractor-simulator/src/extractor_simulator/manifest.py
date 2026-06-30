@@ -1,16 +1,26 @@
-"""Manifest-writing placeholder utilities."""
+"""Manifest utilities."""
 
 from __future__ import annotations
 
-from extractor_simulator.config import TableConfig
+from datetime import datetime
 
 
-class ManifestWriter:
-    """Plans manifest entries for a future extraction batch."""
-
-    def plan_manifest_entry(self, table: TableConfig, output_path: str) -> None:
-        # TODO: Persist manifest JSON after file writing is implemented.
-        print(
-            "planned manifest entry "
-            f"table={table.name} mode={table.extraction_mode} output={output_path}"
-        )
+def build_manifest(
+    *,
+    table: str,
+    mode: str,
+    batch_id: str,
+    files: list[str],
+    total_rows: int,
+    created_at: datetime,
+) -> dict[str, object]:
+    """Build the JSON-serializable extraction manifest."""
+    return {
+        "table": table,
+        "mode": mode,
+        "batch_id": batch_id,
+        "format": "parquet",
+        "files": files,
+        "total_rows": total_rows,
+        "created_at": created_at.isoformat().replace("+00:00", "Z"),
+    }

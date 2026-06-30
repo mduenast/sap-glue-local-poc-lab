@@ -15,6 +15,10 @@ class TableConfig:
     extraction_mode: str
     incremental_column: str | None = None
 
+    @property
+    def short_name(self) -> str:
+        return self.name.removeprefix("sap_").upper()
+
 
 def load_table_config(path: str | Path) -> list[TableConfig]:
     """Load table extraction metadata from YAML."""
@@ -32,3 +36,20 @@ def load_table_config(path: str | Path) -> list[TableConfig]:
         )
         for table in tables
     ]
+
+
+def find_table_config(tables: list[TableConfig], requested_table: str) -> TableConfig:
+    """Find a configured table by full name or SAP-like short name."""
+    normalized = requested_table.strip().lower()
+    candidates = {
+        table.name.lower(): table
+        for table in tables
+    }
+    candidates.update({table.short_name.lower(): table for table in tables})
+
+    table = candidates.get(normalized)
+    if table is None:
+        available = ", ".join(sorted(table.short_name for table in tables))
+        raise ValueError(f"Unknown table '{requested_table}'. Available tables: {available}")
+
+    return table

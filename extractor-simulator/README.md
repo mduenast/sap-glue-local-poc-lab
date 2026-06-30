@@ -1,19 +1,19 @@
 # Extractor Simulator
 
-This package is a skeleton for a future extractor simulator.
+This package implements the Phase 2 extractor simulator.
 
-Planned responsibilities:
+Current responsibilities:
 
 - read table metadata from `config/tables.yml`
 - connect to the local PostgreSQL source
-- extract configured tables in full or incremental mode
+- extract one configured table in full mode
 - write data files to a local S3-compatible landing zone
 - write a manifest for each extraction batch
 
-The first iteration does not implement real extraction. CLI commands print the intended behavior and return successfully.
+Incremental extraction is intentionally not implemented yet.
 
 ## Example
 
 ```bash
-python -m extractor_simulator.cli extract --config ../config/tables.yml
+python -m extractor_simulator.cli extract --config ../config/tables.yml --table VBAK --mode full
 ```
