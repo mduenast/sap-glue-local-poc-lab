@@ -52,7 +52,8 @@ Pasa `DUCKDB_PATH` como ruta absoluta a ese fichero DuckDB. El ejemplo de profil
 - Docker y Docker Compose
 - Make
 - Python 3.11 o superior
-- Herramientas compatibles con AWS CLI para comandos Floci compatibles con S3 y DynamoDB contra `localhost:4566`
+
+El laboratorio instala herramientas compatibles con AWS CLI localmente en `.venv/` con `make setup`; no hace falta un comando `aws` global.
 
 ## Configuracion del proyecto dbt hermano
 
@@ -78,7 +79,7 @@ DBT_PROJECT_DIR ?= ../sap-glue-local-poc-dbt
 DBT_BIN ?= $(DBT_PROJECT_DIR)/.venv/bin/dbt
 ```
 
-Sobrescribe cualquiera de los dos valores si el proyecto hermano esta en otra ruta o si quieres usar otro ejecutable dbt:
+Sobrescribe cualquiera de los dos valores si el proyecto hermano esta en otra ruta o si quieres usar otro ejecutable dbt. El proyecto dbt hermano debe gestionar su propio setup; este laboratorio no instala dbt.
 
 ```bash
 make dbt-build DBT_PROJECT_DIR=../mi-proyecto-dbt
@@ -88,19 +89,27 @@ make dbt-build DBT_BIN=/ruta/absoluta/a/dbt
 ## Inicio rapido
 
 ```bash
+make setup
 make up
 make bootstrap
-make seed-sap
-python -m venv extractor-simulator/.venv
-extractor-simulator/.venv/bin/python -m pip install -e extractor-simulator
-python -m venv orchestrator/.venv
-orchestrator/.venv/bin/python -m pip install -e orchestrator
-make extract TABLE=VBAK
-make load TABLE=VBAK
-make show-results
+make demo
 ```
 
-Esto arranca PostgreSQL 16 y Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP, extrae una tabla a Parquet con manifiesto y carga el ultimo manifiesto en DuckDB.
+Esto instala herramientas locales y dependencias Python del laboratorio, arranca PostgreSQL 16 y Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP, extrae datos a Parquet con manifiestos, carga tablas RAW en DuckDB, ejecuta dbt desde el repositorio hermano y muestra resultados locales.
+
+`make setup` crea:
+
+```text
+.venv/                         # herramientas locales del laboratorio, incluido awscli
+extractor-simulator/.venv/     # dependencias del extractor
+orchestrator/.venv/            # dependencias del orquestador
+```
+
+Puedes sobrescribir el binario compatible con AWS CLI si hace falta:
+
+```bash
+make bootstrap AWS_BIN=/ruta/absoluta/a/aws
+```
 
 ## Verificacion
 
@@ -123,8 +132,8 @@ docker compose exec postgres psql -U lab_user -d sap_source -c "select count(*) 
 Comprobar los recursos Floci:
 
 ```bash
-AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3api list-buckets
-AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 dynamodb list-tables
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test .venv/bin/aws --endpoint-url http://localhost:4566 s3api list-buckets
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test .venv/bin/aws --endpoint-url http://localhost:4566 dynamodb list-tables
 ```
 
 Ejecutar una extraccion completa de la tabla de cabecera de ventas:
@@ -136,7 +145,7 @@ make extract TABLE=VBAK
 Listar los artefactos subidos:
 
 ```bash
-AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3 ls \
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test .venv/bin/aws --endpoint-url http://localhost:4566 s3 ls \
   s3://sap-glue-local-landing/landing/sap/VBAK/ \
   --recursive
 ```
@@ -144,8 +153,8 @@ AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://loca
 Leer el ultimo manifiesto:
 
 ```bash
-LATEST_MANIFEST="$(AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3 ls s3://sap-glue-local-landing/landing/sap/VBAK/ --recursive | awk '/manifest.json/ {print $4}' | tail -n 1)"
-AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url http://localhost:4566 s3 cp "s3://sap-glue-local-landing/${LATEST_MANIFEST}" -
+LATEST_MANIFEST="$(AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test .venv/bin/aws --endpoint-url http://localhost:4566 s3 ls s3://sap-glue-local-landing/landing/sap/VBAK/ --recursive | awk '/manifest.json/ {print $4}' | tail -n 1)"
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test .venv/bin/aws --endpoint-url http://localhost:4566 s3 cp "s3://sap-glue-local-landing/${LATEST_MANIFEST}" -
 ```
 
 Cargar el ultimo manifiesto en DuckDB:

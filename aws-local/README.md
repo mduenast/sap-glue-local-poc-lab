@@ -13,10 +13,11 @@ The Docker Compose service named `floci` exposes the local AWS-compatible emulat
 ## Usage
 
 ```bash
+make setup
 make up
 make bootstrap
 ```
 
 The scripts use placeholder local credentials from `.env.example`. They do not contain real credentials.
 
-The host must provide AWS CLI-compatible tooling as `aws`.
+The lab installs AWS CLI-compatible tooling locally into `.venv/` through `make setup`. Override the binary with `AWS_BIN=/path/to/aws` if needed.
