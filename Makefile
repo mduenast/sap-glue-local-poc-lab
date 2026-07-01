@@ -1,4 +1,4 @@
-.PHONY: setup setup-tools setup-extractor setup-orchestrator up down bootstrap seed-sap extract load dbt-build show-results demo clean
+.PHONY: doctor setup setup-tools setup-extractor setup-orchestrator up down bootstrap seed-sap extract load dbt-build show-results demo clean
 
 COMPOSE ?= docker compose
 POSTGRES_SERVICE ?= postgres
@@ -15,6 +15,19 @@ DEFAULT_DBT_BIN = $(DBT_PROJECT_DIR)/.venv/bin/dbt
 DBT_BIN ?= $(DEFAULT_DBT_BIN)
 DUCKDB_PATH ?= ./data/warehouse/local_lab.duckdb
 DBT_DUCKDB_PATH ?= $(abspath $(DUCKDB_PATH))
+
+doctor:
+	@status=0; \
+	check_ok() { printf "OK   %s\n" "$$1"; }; \
+	check_fail() { printf "FAIL %s\n" "$$1"; status=1; }; \
+	if command -v docker >/dev/null 2>&1; then check_ok "docker is available"; else check_fail "docker not found. Install Docker before running make up or make demo."; fi; \
+	if docker compose version >/dev/null 2>&1; then check_ok "docker compose is available"; else check_fail "docker compose not available. Install Docker Compose or use a Docker version with compose support."; fi; \
+	if command -v "$(PYTHON)" >/dev/null 2>&1; then check_ok "Python is available via $(PYTHON)"; else check_fail "Python not found via $(PYTHON). Install Python 3.11+ or run make doctor PYTHON=/path/to/python3."; fi; \
+	if [ -x "$(AWS_BIN)" ]; then check_ok "local AWS CLI-compatible binary found at $(AWS_BIN)"; else check_fail "local AWS CLI-compatible binary missing at $(AWS_BIN). Run make setup."; fi; \
+	if grep -Eq '^[[:space:]]*floci:' docker-compose.yml; then check_ok "Floci service is configured in docker-compose.yml"; else check_fail "Floci service not found in docker-compose.yml."; fi; \
+	if [ -d "$(DBT_PROJECT_DIR)" ]; then check_ok "sibling dbt repository found at $(DBT_PROJECT_DIR)"; else check_fail "sibling dbt repository missing at $(DBT_PROJECT_DIR). Clone it next to this repository or override DBT_PROJECT_DIR."; fi; \
+	if [ -x "$(DBT_BIN)" ]; then check_ok "dbt binary found at $(DBT_BIN)"; else check_fail "dbt binary missing at $(DBT_BIN). Run make setup inside the sibling dbt repository or override DBT_BIN."; fi; \
+	exit $$status
 
 setup: setup-tools setup-extractor setup-orchestrator
 

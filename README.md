@@ -89,13 +89,14 @@ make dbt-build DBT_BIN=/absolute/path/to/dbt
 ## Quickstart
 
 ```bash
+make doctor
 make setup
 make up
 make bootstrap
 make demo
 ```
 
-This installs local lab tooling and Python package dependencies, starts PostgreSQL 16 and Floci, creates the local landing bucket and batch-state table, seeds the SAP-like source tables, extracts data to Parquet plus manifests, loads DuckDB RAW tables, runs dbt from the sibling repository, and shows local results.
+This checks local prerequisites, installs local lab tooling and Python package dependencies, starts PostgreSQL 16 and Floci, creates the local landing bucket and batch-state table, seeds the SAP-like source tables, extracts data to Parquet plus manifests, loads DuckDB RAW tables, runs dbt from the sibling repository, and shows local results.
 
 `make setup` creates:
 

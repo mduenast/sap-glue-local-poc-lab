@@ -89,13 +89,14 @@ make dbt-build DBT_BIN=/ruta/absoluta/a/dbt
 ## Inicio rapido
 
 ```bash
+make doctor
 make setup
 make up
 make bootstrap
 make demo
 ```
 
-Esto instala herramientas locales y dependencias Python del laboratorio, arranca PostgreSQL 16 y Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP, extrae datos a Parquet con manifiestos, carga tablas RAW en DuckDB, ejecuta dbt desde el repositorio hermano y muestra resultados locales.
+Esto comprueba los prerrequisitos locales, instala herramientas locales y dependencias Python del laboratorio, arranca PostgreSQL 16 y Floci, crea el bucket local de aterrizaje y la tabla de estado de lotes, carga las tablas fuente tipo SAP, extrae datos a Parquet con manifiestos, carga tablas RAW en DuckDB, ejecuta dbt desde el repositorio hermano y muestra resultados locales.
 
 `make setup` crea:
 
